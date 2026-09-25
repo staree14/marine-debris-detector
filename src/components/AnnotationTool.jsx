@@ -7,6 +7,10 @@ import { DEBRIS_CLASSES } from '../utils/taxonomy.js'
 // `critical` (a safety-critical class, e.g. person in water) always wins
 // regardless of review status — a tight alert-red dash so it never reads as
 // just another routine low-confidence debris flag.
+// Caps the on-screen size of the review image so the Detection Pipeline
+// panel below it stays reachable without excessive scrolling.
+const MAX_IMAGE_HEIGHT = 460
+
 const VARIANT_STYLE = {
   confirmed: { stroke: '#2fb7a8', dash: 'none' },
   rejected: { stroke: '#e05a4a', dash: 'none' },
@@ -176,6 +180,14 @@ export default function AnnotationTool({
           background: '#04121a',
           cursor: drawMode ? 'crosshair' : 'default',
           userSelect: 'none',
+          // Capped so a tall/narrow waterfall tile can't blow the box up to
+          // the point the Detection Pipeline below is scrolled out of view —
+          // width (not height) is the constrained dimension, so aspectRatio
+          // derives the other side and the image never letterboxes, which
+          // keeps the bboxPct overlay's 0-100 coordinate space exact.
+          aspectRatio: `${aspect}`,
+          width: `min(100%, ${Math.round(MAX_IMAGE_HEIGHT * aspect)}px)`,
+          margin: '0 auto',
         }}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
@@ -207,12 +219,16 @@ export default function AnnotationTool({
                     y={b.bboxPct.top * 100}
                     width={b.bboxPct.width * 100}
                     height={b.bboxPct.height * 100}
-                    fill="transparent"
+                    fill={b.selected ? `${style.stroke}26` : 'transparent'}
                     stroke={style.stroke}
-                    strokeWidth={b.selected ? 2.4 : 1.5}
-                    strokeDasharray={style.dash}
+                    strokeWidth={b.selected ? 3 : 1.5}
+                    strokeDasharray={b.selected ? 'none' : style.dash}
                     vectorEffect="non-scaling-stroke"
-                    style={{ pointerEvents: drawMode ? 'none' : 'auto', cursor: 'pointer' }}
+                    style={{
+                      pointerEvents: drawMode ? 'none' : 'auto',
+                      cursor: 'pointer',
+                      filter: b.selected ? `drop-shadow(0 0 4px ${style.stroke}aa)` : 'none',
+                    }}
                     onClick={() => onSelectBox(b.id)}
                   />
                 )

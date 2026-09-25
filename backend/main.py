@@ -292,6 +292,88 @@ async def detect(file: UploadFile = File(...), metadata: Optional[str] = Form(No
     }
 
 
+# -- Metadata extraction -----------------------------------------------------
+#
+# Real side-scan sonar formats (XTF/JSF/SEGY) carry nav fixes in their binary
+# headers, but the images actually flowing through Upload today are plain
+# JPG/PNG. The one real source of georeferencing on those is EXIF GPS tags —
+# present on phone/drone photos, absent on sonar waterfall exports. Rather
+# than inventing fake coordinates, this reads whatever EXIF actually exists
+# and leaves the rest null for the operator to fill in on the Upload form.
+
+GPS_IFD_TAG = 0x8825
+EXIF_DATETIME_TAG = 0x0132
+
+
+class ExtractedMetadata(BaseModel):
+    filename: str
+    survey_id: Optional[str] = None
+    vessel: Optional[str] = None
+    start_coords: Optional[str] = None
+    end_coords: Optional[str] = None
+    heading_deg: Optional[float] = None
+    depth_m: Optional[float] = None
+    altitude_m: Optional[float] = None
+    timestamp: Optional[str] = None
+    swath_width_m: Optional[float] = None
+    start_lat: Optional[float] = None
+    start_lon: Optional[float] = None
+    end_lat: Optional[float] = None
+    end_lon: Optional[float] = None
+
+
+def _dms_to_deg(dms, ref: Optional[str]) -> Optional[float]:
+    try:
+        deg, minutes, seconds = (float(v) for v in dms)
+    except (TypeError, ValueError):
+        return None
+    val = deg + minutes / 60 + seconds / 3600
+    if ref in ("S", "W"):
+        val = -val
+    return val
+
+
+def _extract_gps(image: Image.Image) -> Tuple[Optional[float], Optional[float], Optional[float]]:
+    """Returns (lat, lon, altitude_m) from EXIF GPS tags, or (None, None, None)."""
+    try:
+        exif = image.getexif()
+        gps_ifd = exif.get_ifd(GPS_IFD_TAG)
+    except Exception:
+        return None, None, None
+    if not gps_ifd:
+        return None, None, None
+
+    lat = _dms_to_deg(gps_ifd.get(2), gps_ifd.get(1))
+    lon = _dms_to_deg(gps_ifd.get(4), gps_ifd.get(3))
+    altitude = gps_ifd.get(6)
+    altitude = float(altitude) if altitude is not None else None
+    return lat, lon, altitude
+
+
+@app.post("/extract-metadata")
+async def extract_metadata(file: UploadFile = File(...)):
+    raw = await file.read()
+    try:
+        image = Image.open(io.BytesIO(raw))
+    except Exception:
+        raise HTTPException(status_code=400, detail="Could not read uploaded file as an image.")
+
+    lat, lon, altitude_m = _extract_gps(image)
+    exif = image.getexif()
+    timestamp = exif.get(EXIF_DATETIME_TAG)  # "YYYY:MM:DD HH:MM:SS", EXIF's native format
+
+    return ExtractedMetadata(
+        filename=file.filename or "unknown",
+        start_coords=f"{lat:.4f}, {lon:.4f}" if lat is not None and lon is not None else None,
+        heading_deg=None,
+        depth_m=None,
+        altitude_m=altitude_m,
+        timestamp=timestamp,
+        start_lat=lat,
+        start_lon=lon,
+    )
+
+
 # -- Annotations (active learning store) -----------------------------------------
 
 class Annotation(BaseModel):

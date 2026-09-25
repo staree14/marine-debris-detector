@@ -111,3 +111,95 @@ export function downloadReportCsv(survey, detections) {
   const report = buildReport(survey, detections)
   download(`${report.survey_id || 'survey'}-detections.csv`, toCsv(report), 'text/csv')
 }
+
+// -- KML (Google Earth) export -------------------------------------------------
+
+const DETECTION_STATUS_COLOR = {
+  'needs-review': '#cf5a42',
+  'auto-confirmed': '#3f8a63',
+  'operator-confirmed': '#1f6fa3',
+  rejected: '#82969e',
+}
+
+function riskZoneColor(intensity) {
+  if (intensity >= 0.85) return '#d32f2f'
+  if (intensity >= 0.7) return '#ff9800'
+  if (intensity >= 0.55) return '#ffeb3b'
+  return '#2196f3'
+}
+
+function escapeXml(s) {
+  return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' }[c]))
+}
+
+// KML colors are aabbggrr (alpha + BGR, reversed from our #rrggbb).
+function hexToKmlColor(hex, alphaHex = 'ff') {
+  const c = hex.replace('#', '')
+  return `${alphaHex}${c.slice(4, 6)}${c.slice(2, 4)}${c.slice(0, 2)}`.toLowerCase()
+}
+
+function kmlPlacemark({ name, lat, lon, colorHex, description }) {
+  return `    <Placemark>
+      <name>${escapeXml(name)}</name>
+      <Style>
+        <IconStyle>
+          <color>${hexToKmlColor(colorHex)}</color>
+          <scale>1.1</scale>
+          <Icon><href>http://maps.google.com/mapfiles/kml/shapes/placemark_circle.png</href></Icon>
+        </IconStyle>
+      </Style>
+      <description><![CDATA[${description}]]></description>
+      <Point><coordinates>${lon},${lat},0</coordinates></Point>
+    </Placemark>`
+}
+
+export function buildKml({ survey, detections = [], riskZones = [] } = {}) {
+  const detectionPlacemarks = detections
+    .filter((d) => d.location)
+    .map((d) =>
+      kmlPlacemark({
+        name: `${classLabel(d.class)} · ${d.lineId}`,
+        lat: d.location.lat,
+        lon: d.location.lon,
+        colorHex: DETECTION_STATUS_COLOR[d.status] || '#1f6fa3',
+        description: [
+          `Class: ${classLabel(d.class)}`,
+          `Confidence: ${d.confidence != null ? `${Math.round(d.confidence * 100)}%` : '—'}`,
+          `Status: ${d.status}`,
+          `Site: ${d.site || '—'}`,
+        ].join('<br/>'),
+      })
+    )
+    .join('\n')
+
+  const riskPlacemarks = riskZones
+    .map((z) =>
+      kmlPlacemark({
+        name: `${z.zone_name} — ${z.risk_level} Risk`,
+        lat: z.lat,
+        lon: z.lng,
+        colorHex: riskZoneColor(z.intensity),
+        description: [`Risk level: ${z.risk_level} (${Math.round(z.intensity * 100)}%)`, ...(z.factors || []).map((f) => `• ${f}`)].join(
+          '<br/>'
+        ),
+      })
+    )
+    .join('\n')
+
+  const folders = []
+  if (detectionPlacemarks) folders.push(`  <Folder>\n    <name>Detections</name>\n${detectionPlacemarks}\n  </Folder>`)
+  if (riskPlacemarks) folders.push(`  <Folder>\n    <name>Risk Zones</name>\n${riskPlacemarks}\n  </Folder>`)
+
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+<Document>
+  <name>${escapeXml(survey?.id ? `${survey.id} — AquaScan` : 'AquaScan Export')}</name>
+${folders.join('\n')}
+</Document>
+</kml>
+`
+}
+
+export function downloadKml(survey, { detections = [], riskZones = [] } = {}) {
+  download(`${survey?.id || 'aquascan'}-map.kml`, buildKml({ survey, detections, riskZones }), 'application/vnd.google-earth.kml+xml')
+}

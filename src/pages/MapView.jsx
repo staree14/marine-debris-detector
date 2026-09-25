@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
 import { MapContainer, TileLayer, CircleMarker, Tooltip, Popup, useMap } from 'react-leaflet'
 import { useNavigate } from 'react-router-dom'
-import { getDetections, getScanLines, getSites } from '../api/client.js'
+import { getDetections, getScanLines, getSites, getSurvey } from '../api/client.js'
 import SonarCanvas from '../components/SonarCanvas.jsx'
 import { classLabel } from '../utils/taxonomy.js'
 import HeatmapLayer from '../components/HeatmapLayer.jsx'
 import RiskLegend from '../components/RiskLegend.jsx'
+import { downloadKml } from '../utils/exportReport.js'
 
 const BASEMAPS = {
   map: {
@@ -68,6 +69,7 @@ function MapBoundsUpdater({ detections }) {
 
 export default function MapView() {
   const navigate = useNavigate()
+  const [survey, setSurvey] = useState(null)
   const [detections, setDetections] = useState([])
   const [lines, setLines] = useState([])
   const [sites, setSites] = useState([])
@@ -80,6 +82,7 @@ export default function MapView() {
 
   // Fetch Existing API Data
   useEffect(() => {
+    getSurvey().then(setSurvey)
     getDetections().then(setDetections)
     getScanLines().then(setLines)
     getSites().then(setSites)
@@ -120,27 +123,38 @@ export default function MapView() {
           </p>
         </div>
 
-        {/* View Toggle */}
-        <div style={{ display: 'flex', gap: 4, background: 'var(--glass)', border: '1px solid var(--border-strong)', borderRadius: 10, padding: 4 }}>
-          {['detections', 'risk', 'both'].map((view) => (
-            <button
-              key={view}
-              onClick={() => setActiveView(view)}
-              style={{
-                border: 'none',
-                borderRadius: 7,
-                padding: '7px 12px',
-                fontSize: 12.5,
-                fontWeight: 600,
-                cursor: 'pointer',
-                background: activeView === view ? 'var(--ocean-deep)' : 'transparent',
-                color: activeView === view ? '#fff' : 'var(--ink-dim)',
-                textTransform: 'capitalize'
-              }}
-            >
-              {view === 'both' ? 'Both (Overlay)' : view}
-            </button>
-          ))}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          {/* View Toggle */}
+          <div style={{ display: 'flex', gap: 4, background: 'var(--glass)', border: '1px solid var(--border-strong)', borderRadius: 10, padding: 4 }}>
+            {['detections', 'risk', 'both'].map((view) => (
+              <button
+                key={view}
+                onClick={() => setActiveView(view)}
+                style={{
+                  border: 'none',
+                  borderRadius: 7,
+                  padding: '7px 12px',
+                  fontSize: 12.5,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  background: activeView === view ? 'var(--ocean-deep)' : 'transparent',
+                  color: activeView === view ? '#fff' : 'var(--ink-dim)',
+                  textTransform: 'capitalize'
+                }}
+              >
+                {view === 'both' ? 'Both (Overlay)' : view}
+              </button>
+            ))}
+          </div>
+
+          <button
+            type="button"
+            className="btn ghost"
+            onClick={() => downloadKml(survey, { detections, riskZones })}
+            title="Downloads a .kml file — opens directly in Google Earth Pro if installed, or import it manually at earth.google.com/web"
+          >
+            Export KML
+          </button>
         </div>
       </div>
 

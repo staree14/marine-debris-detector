@@ -4,6 +4,7 @@ import { getScanLines, getDetections, submitAnnotations } from '../api/client.js
 import AnnotationTool from '../components/AnnotationTool.jsx'
 import ConfidenceBadge from '../components/ConfidenceBadge.jsx'
 import PipelineVisualizer from '../components/PipelineVisualizer.jsx'
+import SonarCanvas from '../components/SonarCanvas.jsx'
 import { classIdFor, classLabel, isCriticalClass, modelLabel, statusRowTint } from '../utils/taxonomy.js'
 
 function detectionVariant(status, classKey) {
@@ -172,6 +173,10 @@ export default function Review() {
   const line = lines.find((l) => l.id === lineId)
   const selectedDetection = detections.find((d) => d.id === selectedId)
 
+  const lineIndex = lines.findIndex((l) => l.id === lineId)
+  const prevLine = lineIndex > 0 ? lines[lineIndex - 1] : null
+  const nextLine = lineIndex >= 0 && lineIndex < lines.length - 1 ? lines[lineIndex + 1] : null
+
   const handleConfirmSelected = () => {
     if (!selectedDetection) return
     setDetections((prev) => prev.map((d) => (d.id === selectedDetection.id ? { ...d, status: 'operator-confirmed' } : d)))
@@ -238,15 +243,45 @@ export default function Review() {
         <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11.5, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--ocean)', fontWeight: 600, marginBottom: 8 }}>
           Line {lineId || '—'} {line ? `· ${line.site}` : ''}
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <h1 style={{ fontSize: 28 }}>Detection results</h1>
-          <span className="info-tip" tabIndex={0}>
-            i
-            <span className="bubble">
-              Detections are identified primarily through acoustic shadow analysis — the dark region cast
-              behind an object on the seafloor.
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <h1 style={{ fontSize: 28 }}>Detection results</h1>
+            <span className="info-tip" tabIndex={0}>
+              i
+              <span className="bubble">
+                Detections are identified primarily through acoustic shadow analysis — the dark region cast
+                behind an object on the seafloor.
+              </span>
             </span>
-          </span>
+          </div>
+
+          {lines.length > 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <button
+                type="button"
+                className="btn ghost"
+                disabled={!prevLine}
+                onClick={() => prevLine && navigate(`/review/${prevLine.id}`)}
+                title="Previous scan line"
+                style={{ padding: '6px 12px' }}
+              >
+                ←
+              </button>
+              <span className="mono" style={{ fontSize: 12, color: 'var(--ink-faint)' }}>
+                {lineIndex >= 0 ? `Line ${lineIndex + 1} of ${lines.length}` : ''}
+              </span>
+              <button
+                type="button"
+                className="btn ghost"
+                disabled={!nextLine}
+                onClick={() => nextLine && navigate(`/review/${nextLine.id}`)}
+                title="Next scan line"
+                style={{ padding: '6px 12px' }}
+              >
+                →
+              </button>
+            </div>
+          )}
         </div>
         <p style={{ color: 'var(--ink-dim)', marginTop: 8, maxWidth: '70ch' }}>
           Bounding boxes from the active detection pass, ranked by confidence. Draw missed objects, confirm or
@@ -254,7 +289,7 @@ export default function Review() {
         </p>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 380px', gap: 20 }}>
+      <div className="review-grid">
         <div style={{ minWidth: 0 }} ref={imageColRef}>
           <AnnotationTool
             imageSrc={line?.imageSrc}
@@ -295,9 +330,10 @@ export default function Review() {
                 style={{
                   padding: '16px 18px',
                   borderBottom: '1px solid var(--border)',
+                  borderLeft: d.id === selectedId ? '3px solid var(--ocean)' : '3px solid transparent',
                   cursor: 'pointer',
                   background: d.id === selectedId ? 'var(--ocean-tint)' : statusRowTint(d.status),
-                  transition: 'background 0.15s ease',
+                  transition: 'background 0.15s ease, border-color 0.15s ease',
                 }}
               >
                 {/* Header: Class label */}
@@ -400,6 +436,7 @@ export default function Review() {
               style={{
                 padding: '16px 18px',
                 borderBottom: '1px solid var(--border)',
+                borderLeft: a.id === selectedId ? '3px solid var(--ocean)' : '3px solid transparent',
                 cursor: 'pointer',
                 background: a.id === selectedId ? 'var(--ocean-tint)' : 'rgba(77,142,224,0.07)',
               }}
@@ -419,6 +456,56 @@ export default function Review() {
         imageSrc={line?.imageSrc}
         detections={detections}
       />
+
+      {lines.length > 0 && (
+        <div className="review-grid" style={{ marginTop: 20 }}>
+        <div className="card" style={{ padding: '14px 16px' }}>
+          <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink-dim)', marginBottom: 10 }}>
+            All scan lines ({lines.length})
+          </div>
+          <div style={{ display: 'flex', gap: 10, overflowX: 'auto', paddingBottom: 4 }}>
+            {lines.map((l) => (
+              <button
+                key={l.id}
+                type="button"
+                onClick={() => navigate(`/review/${l.id}`)}
+                title={`${l.id} · ${l.site}`}
+                style={{
+                  flex: 'none',
+                  width: 110,
+                  height: 82,
+                  padding: 0,
+                  borderRadius: 8,
+                  overflow: 'hidden',
+                  cursor: 'pointer',
+                  position: 'relative',
+                  background: '#04121a',
+                  border: l.id === lineId ? '2px solid var(--ocean)' : '1px solid var(--border-strong)',
+                  boxShadow: l.id === lineId ? '0 0 0 2px var(--ocean-tint)' : 'none',
+                }}
+              >
+                <SonarCanvas imageSrc={l.imageSrc} seed={l.id} />
+                <span
+                  className="mono"
+                  style={{
+                    position: 'absolute',
+                    left: 4,
+                    bottom: 4,
+                    fontSize: 9,
+                    color: '#e0f7f2',
+                    background: 'rgba(4,18,26,0.7)',
+                    padding: '1px 4px',
+                    borderRadius: 3,
+                  }}
+                >
+                  {l.detections}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -223,7 +223,7 @@ function drawAcoustic(canvas, rgba, w, h, box, dir) {
 
 function Arrow() {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', alignSelf: 'center', flexShrink: 0, padding: '0 8px', paddingBottom: 42 }}>
+    <div style={{ display: 'flex', alignItems: 'center', alignSelf: 'center', flexShrink: 0, padding: '0 8px', paddingBottom: 36 }}>
       <svg width="38" height="22" viewBox="0 0 38 22" fill="none">
         <line x1="0" y1="11" x2="28" y2="11" stroke="#c8960c" strokeWidth="2.5" strokeDasharray="5 3" />
         <polygon points="28,5 38,11 28,17" fill="#c8960c" />
@@ -243,7 +243,7 @@ function PanelCard({ step, label, sub, accent, canvasRef, active, onClick }) {
         flexDirection: 'column',
         alignItems: 'center',
         flexShrink: 0,
-        width: 220,
+        width: 187,
         cursor: 'pointer',
         transition: 'transform 0.18s ease',
       }}
@@ -267,8 +267,8 @@ function PanelCard({ step, label, sub, accent, canvasRef, active, onClick }) {
       </div>
       <div
         style={{
-          width: 220,
-          height: 270,
+          width: 187,
+          height: 230,
           background: '#060e15',
           border: active ? `2px solid ${accent}` : '1px solid var(--border-strong)',
           borderRadius: 10,
@@ -469,7 +469,7 @@ export default function PipelineVisualizer({ imageSrc, detections }) {
     <div
       style={{
         marginTop: 28,
-        padding: '24px 26px 26px',
+        padding: '20px 22px 22px',
         background: 'var(--panel)',
         border: '1px solid var(--border-strong)',
         borderRadius: 14,
