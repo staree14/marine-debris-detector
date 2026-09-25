@@ -1,0 +1,78 @@
+/* Landing-only Tailwind entry. No preflight: the dashboard's global styles in
+   src/index.css must stay untouched. Utilities are deliberately unlayered —
+   index.css's bare h1/a rules are unlayered too, and unlayered CSS always
+   beats layered CSS, so layered utilities would lose to them. */
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" source(none);
+
+@source "./";
+@source "../../pages/Landing.jsx";
+
+@theme {
+  --color-abyss: #0b1118;
+  --color-deep: #111a22;
+  --color-surface: #161f28;
+  --color-line: #22303d;
+  --color-line-strong: #2e3e4d;
+  --color-fg: #e6edf3;
+  --color-fg-dim: #9ba9b6;
+  --color-fg-faint: #6f7e8b;
+  /* UI accent. Base is a shade darker than #4C6EF5 so white button text
+     clears 4.5:1; the lighter tone is for accent text on dark. */
+  --color-signal: #3f5fe0;
+  --color-signal-hover: #4c6ef5;
+  --color-signal-text: #8199f8;
+  /* Sonar data only — detections, waterfall imagery. Never UI chrome. */
+  --color-sonar: #d98b2b;
+
+  --font-sans: 'IBM Plex Sans', system-ui, -apple-system, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+}
+
+/* index.css styles bare h1–h3, a, th and td through the dashboard's tokens.
+   Remapping those tokens inside the landing subtree makes any rule that still
+   leaks through resolve to the landing palette instead of the light theme. */
+.landing {
+  --ink: var(--color-fg);
+  --ink-dim: var(--color-fg-dim);
+  --ink-faint: var(--color-fg-faint);
+  --border: var(--color-line);
+  --ocean-deep: var(--color-signal-text);
+  --font-display: var(--font-sans);
+}
+
+/* Minimal scoped reset standing in for preflight. :where() keeps these at
+   element-level specificity so any utility class overrides them; this file
+   loads after index.css, so they also win ties against its bare selectors. */
+:where(.landing) :is(th, td) {
+  padding: 0;
+  border-bottom: 0;
+  color: inherit;
+  font-weight: inherit;
+}
+:where(.landing) *,
+:where(.landing) ::before,
+:where(.landing) ::after {
+  border: 0 solid;
+}
+:where(.landing) :is(p, figure, ol, ul, blockquote, dl, dd) {
+  margin: 0;
+  padding: 0;
+}
+:where(.landing) :is(ol, ul) {
+  list-style: none;
+}
+:where(.landing) img {
+  display: block;
+  max-width: 100%;
+}
+:where(.landing) button {
+  background: none;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+:where(.landing) table {
+  border-collapse: collapse;
+}

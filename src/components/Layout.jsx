@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, NavLink, Outlet } from 'react-router-dom'
 
 const LINKS = [
-  { to: '/', label: 'Overview', end: true },
+  { to: '/dashboard', label: 'Overview', end: true },
   { to: '/upload', label: 'Upload' },
   { to: '/review', label: 'Review' },
   { to: '/map', label: 'Map' },

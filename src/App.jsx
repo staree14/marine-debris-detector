@@ -5,13 +5,15 @@ import Upload from './pages/Upload.jsx'
 import Review from './pages/Review.jsx'
 import MapView from './pages/MapView.jsx'
 import Reports from './pages/Reports.jsx'
+import Landing from './pages/Landing.jsx'
 
 export default function App() {
   return (
     <BrowserRouter>
       <Routes>
+        <Route path="/" element={<Landing />} />
         <Route element={<Layout />}>
-          <Route path="/" element={<Dashboard />} />
+          <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/upload" element={<Upload />} />
           <Route path="/review" element={<Review />} />
           <Route path="/review/:lineId" element={<Review />} />
