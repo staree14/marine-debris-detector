@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import SonarCanvas from './SonarCanvas.jsx'
+import AcousticQualityBadge, { QualityWarningRibbon } from './AcousticQualityBadge.jsx'
 import { DEBRIS_CLASSES } from '../utils/taxonomy.js'
 
 // Model-predicted boxes: solid border (teal confirmed, red rejected, dashed
@@ -25,19 +26,12 @@ function clamp01(v) {
 
 /**
  * Sonar canvas + bounding-box drawing tool for the Review page.
- *
- * `boxes` is a flat list of everything to render — model detections and
- * already-drawn operator annotations alike — pre-formatted by the caller as
- * { id, bboxPct, label, variant, selected }. This component only owns the
- * draw-a-new-box gesture and its class-picker popup; confirming/rejecting an
- * *existing* box is delegated back to the caller via onConfirmSelected /
- * onRejectSelected so Review.jsx can own the single source of truth for
- * detection status.
  */
 export default function AnnotationTool({
   imageSrc,
   seed,
   boxes,
+  quality,
   drawMode,
   onToggleDrawMode,
   onSelectBox,
@@ -148,31 +142,41 @@ export default function AnnotationTool({
 
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
-        <button
-          type="button"
-          className={drawMode ? 'btn' : 'btn ghost'}
-          onClick={() => {
-            cancelDraft()
-            onToggleDrawMode()
-          }}
-        >
-          {drawMode ? 'Drawing — click again to stop' : 'Draw Box'}
-        </button>
-        <button type="button" className="btn ghost" disabled={!canConfirmSelected} onClick={onConfirmSelected}>
-          Confirm Detection
-        </button>
-        <button type="button" className="btn ghost" disabled={!canRejectSelected} onClick={onRejectSelected}>
-          Reject Detection
-        </button>
-        <div style={{ flex: 1 }} />
-        <button type="button" className="btn ghost" disabled={!imageSrc} onClick={handleDownload} title="Download source image">
-          Download image
-        </button>
-        <button type="button" className="btn" disabled={saving} onClick={onSaveNext}>
-          {saving ? 'Saving…' : `Save & Next${pendingCount ? ` (${pendingCount})` : ''} →`}
-        </button>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, flexWrap: 'wrap', gap: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            className={drawMode ? 'btn' : 'btn ghost'}
+            onClick={() => {
+              cancelDraft()
+              onToggleDrawMode()
+            }}
+          >
+            {drawMode ? 'Drawing — click again to stop' : 'Draw Box'}
+          </button>
+          <button type="button" className="btn ghost" disabled={!canConfirmSelected} onClick={onConfirmSelected}>
+            Confirm Detection
+          </button>
+          <button type="button" className="btn ghost" disabled={!canRejectSelected} onClick={onRejectSelected}>
+            Reject Detection
+          </button>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <button type="button" className="btn ghost" disabled={!imageSrc} onClick={handleDownload} title="Download source image">
+            Download image
+          </button>
+          <button type="button" className="btn" disabled={saving} onClick={onSaveNext}>
+            {saving ? 'Saving…' : `Save & Next${pendingCount ? ` (${pendingCount})` : ''} →`}
+          </button>
+
+          {/* Header Badge: Rendered in the top-right corner of the inspected tile/card */}
+          {quality && <AcousticQualityBadge quality={quality} />}
+        </div>
       </div>
+
+      {/* Warning Ribbon: Rendered if quality.flags.length > 0 */}
+      {quality && <QualityWarningRibbon flags={quality.flags} status={quality.status} />}
 
       <div
         ref={wrapRef}
@@ -184,11 +188,6 @@ export default function AnnotationTool({
           background: '#04121a',
           cursor: drawMode ? 'crosshair' : 'default',
           userSelect: 'none',
-          // Capped so a tall/narrow waterfall tile can't blow the box up to
-          // the point the Detection Pipeline below is scrolled out of view —
-          // width (not height) is the constrained dimension, so aspectRatio
-          // derives the other side and the image never letterboxes, which
-          // keeps the bboxPct overlay's 0-100 coordinate space exact.
           aspectRatio: `${aspect}`,
           width: `min(100%, ${Math.round(MAX_IMAGE_HEIGHT * aspect)}px)`,
           margin: '0 auto',
@@ -215,7 +214,15 @@ export default function AnnotationTool({
               style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}
             >
               {boxes.map((b) => {
-                const style = VARIANT_STYLE[b.variant] || VARIANT_STYLE['needs-review']
+                const isQualityWarning = b.quality_warning === true
+                const baseStyle = VARIANT_STYLE[b.variant] || VARIANT_STYLE['needs-review']
+
+                // When detection.quality_warning === true, render with dashed amber/red border
+                // When quality_warning === false, render standard solid green/cyan box
+                const strokeColor = isQualityWarning ? '#f59e0b' : baseStyle.stroke
+                const strokeDash = isQualityWarning ? '6 4' : (b.selected ? 'none' : baseStyle.dash)
+                const strokeWidth = b.selected ? 3 : (isQualityWarning ? 2 : 1.5)
+
                 return (
                   <rect
                     key={b.id}
@@ -223,15 +230,16 @@ export default function AnnotationTool({
                     y={b.bboxPct.top * 100}
                     width={b.bboxPct.width * 100}
                     height={b.bboxPct.height * 100}
-                    fill={b.selected ? `${style.stroke}26` : 'transparent'}
-                    stroke={style.stroke}
-                    strokeWidth={b.selected ? 3 : 1.5}
-                    strokeDasharray={b.selected ? 'none' : style.dash}
+                    fill={b.selected ? `${strokeColor}26` : 'transparent'}
+                    stroke={strokeColor}
+                    strokeWidth={strokeWidth}
+                    strokeDasharray={strokeDash}
                     vectorEffect="non-scaling-stroke"
+                    className={isQualityWarning ? 'border-dashed border-amber-500' : ''}
                     style={{
                       pointerEvents: drawMode ? 'none' : 'auto',
                       cursor: 'pointer',
-                      filter: b.selected ? `drop-shadow(0 0 4px ${style.stroke}aa)` : 'none',
+                      filter: b.selected ? `drop-shadow(0 0 4px ${strokeColor}aa)` : 'none',
                     }}
                     onClick={() => onSelectBox(b.id)}
                   />
@@ -253,11 +261,19 @@ export default function AnnotationTool({
             </svg>
 
             {boxes.map((b) => {
-              // A box sitting near the right edge would otherwise grow its
-              // label rightward past the container's overflow:hidden and get
-              // visually cut off — anchor from the box's right edge instead
-              // so the label grows leftward and stays fully in view.
+              const isQualityWarning = b.quality_warning === true
               const anchorRight = b.bboxPct.left > 0.5
+              const baseStyle = VARIANT_STYLE[b.variant] || VARIANT_STYLE['needs-review']
+
+              // When detection.quality_warning === true, append [Low Data Quality] to class label tag
+              const displayLabel = isQualityWarning && !b.label.includes('[Low Data Quality]')
+                ? `${b.label} [Low Data Quality]`
+                : b.label
+
+              const tagBg = isQualityWarning ? '#d97706' : baseStyle.stroke
+              const tagColor = isQualityWarning ? '#ffffff' : '#04211f'
+              const tagBorder = isQualityWarning ? '1px dashed #f59e0b' : 'none'
+
               return (
                 <span
                   key={`label-${b.id}`}
@@ -270,8 +286,9 @@ export default function AnnotationTool({
                       ? { right: `${Math.max(0, 1 - (b.bboxPct.left + b.bboxPct.width)) * 100}%` }
                       : { left: `${b.bboxPct.left * 100}%` }),
                     transform: 'translateY(-100%)',
-                    background: (VARIANT_STYLE[b.variant] || VARIANT_STYLE['needs-review']).stroke,
-                    color: '#04211f',
+                    background: tagBg,
+                    color: tagColor,
+                    border: tagBorder,
                     fontSize: 10.5,
                     fontWeight: 600,
                     padding: '2px 6px',
@@ -279,9 +296,10 @@ export default function AnnotationTool({
                     whiteSpace: 'nowrap',
                     cursor: 'pointer',
                     pointerEvents: drawMode ? 'none' : 'auto',
+                    boxShadow: isQualityWarning ? '0 1px 4px rgba(217,119,6,0.5)' : 'none',
                   }}
                 >
-                  {b.label}
+                  {displayLabel}
                 </span>
               )
             })}

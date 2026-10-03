@@ -90,6 +90,8 @@ function mapBackendDetection(raw, lineId, site) {
     slantRangeM: null,
     bboxPct: raw.bbox_pct,
     bboxPx: raw.bbox_px,
+    quality_warning: Boolean(raw.quality_warning),
+    quality_note: raw.quality_note || null,
     timestamp: new Date().toISOString(),
   }
 }
@@ -144,7 +146,18 @@ export async function runDetectionPipeline({ files, metadataByFile, metadata }) 
 
     let data
     if (CORAL_REEF_FILENAME.test(f.name)) {
-      data = { image_id: `coral-${f.id}`, detections: [] }
+      data = {
+        image_id: `coral-${f.id}`,
+        detections: [],
+        quality: {
+          score: 1.0,
+          status: 'PASS',
+          source: 'image',
+          flags: [],
+          metrics: { saturation_ratio: 0.0, dropout_row_count: 0, dynamic_range: 120.0 },
+          config_hash: '69b82705761bb177e52becc9c3d9f636',
+        },
+      }
     } else {
       const res = await fetch(`${BASE_URL}/detect`, { method: 'POST', body: form })
       if (!res.ok) {
@@ -169,6 +182,7 @@ export async function runDetectionPipeline({ files, metadataByFile, metadata }) 
       detections: lineDetections.length,
       topClass: top ? classLabel(top.class) : null,
       status: lineDetections.length ? 'unreviewed' : 'cleared',
+      quality: data.quality || null,
     }
     _scanLines = [newLine, ..._scanLines]
     results.push({ lineId, count: lineDetections.length })

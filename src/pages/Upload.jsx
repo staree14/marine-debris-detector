@@ -67,6 +67,18 @@ const GALLERY_SAMPLES = [
     heading: 88.0,
     coords: '13.0872, 80.2750',
   },
+  {
+    id: 'sample-degraded-1',
+    name: 'Degraded Acoustic Swath (Cavitation & Clipping)',
+    filename: 'degraded-tile.png',
+    path: '/samples/degraded-tile.png',
+    category: 'Survey Transects',
+    type: 'Low Data Quality Test',
+    size: '410 KB',
+    depth: '42.0 m',
+    heading: 180.0,
+    coords: '13.0850, 80.2720',
+  },
 ]
 
 const CATEGORIES = ['All', 'Ghost Nets & Gear', 'Wrecks', 'Ordnance & Hazards', 'Survey Transects']

@@ -5,6 +5,7 @@ import AnnotationTool from '../components/AnnotationTool.jsx'
 import ConfidenceBadge from '../components/ConfidenceBadge.jsx'
 import PipelineVisualizer from '../components/PipelineVisualizer.jsx'
 import SonarCanvas from '../components/SonarCanvas.jsx'
+import AcousticQualityBadge from '../components/AcousticQualityBadge.jsx'
 import { classIdFor, classLabel, isCriticalClass, modelLabel, statusRowTint } from '../utils/taxonomy.js'
 import { isCachedLineId } from '../constants/demoNotices.js'
 
@@ -226,9 +227,11 @@ export default function Review() {
   const modelBoxes = detections.map((d) => ({
     id: d.id,
     bboxPct: d.bboxPct,
-    label: `${classLabel(d.class).toUpperCase()} · ${d.confidence != null ? d.confidence.toFixed(2) : 'Operator'}`,
+    label: `${classLabel(d.class).toUpperCase()} · ${d.confidence != null ? d.confidence.toFixed(2) : 'Operator'}${d.quality_warning ? ' [Low Data Quality]' : ''}`,
     variant: detectionVariant(d.status, d.class),
     selected: d.id === selectedId,
+    quality_warning: Boolean(d.quality_warning),
+    quality_note: d.quality_note,
   }))
   const draftBoxes = draftAnnotations.map((a) => ({
     id: a.id,
@@ -273,6 +276,11 @@ export default function Review() {
                 Cached result
               </span>
             )}
+            {line?.quality && (
+              <div style={{ marginLeft: 6 }}>
+                <AcousticQualityBadge quality={line.quality} />
+              </div>
+            )}
           </div>
 
           {lines.length > 0 && (
@@ -315,6 +323,7 @@ export default function Review() {
             imageSrc={line?.imageSrc}
             seed={lineId}
             boxes={[...modelBoxes, ...draftBoxes]}
+            quality={line?.quality}
             drawMode={drawMode}
             onToggleDrawMode={() => setDrawMode((v) => !v)}
             onSelectBox={setSelectedId}
@@ -357,8 +366,24 @@ export default function Review() {
                 }}
               >
                 {/* Header: Class label */}
-                <div style={{ marginBottom: 6 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6, flexWrap: 'wrap', gap: 6 }}>
                   <span style={{ fontSize: 15.5, color: 'var(--ink)', fontWeight: 600 }}>{classLabel(d.class)}</span>
+                  {d.quality_warning && (
+                    <span
+                      className="mono"
+                      style={{
+                        fontSize: 10,
+                        fontWeight: 700,
+                        color: '#f59e0b',
+                        background: 'rgba(245, 158, 11, 0.15)',
+                        border: '1px dashed rgba(245, 158, 11, 0.6)',
+                        padding: '2px 6px',
+                        borderRadius: 4,
+                      }}
+                    >
+                      ⚠️ [Low Data Quality]
+                    </span>
+                  )}
                 </div>
 
                 {/* Subheader: Status badge & Unified AquaScan YOLO label */}

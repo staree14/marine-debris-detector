@@ -6,6 +6,7 @@ import StatCard from '../components/StatCard.jsx'
 import StatusTag from '../components/StatusTag.jsx'
 import ConfidenceChart from '../components/ConfidenceChart.jsx'
 import TelemetryStrip from '../components/TelemetryStrip.jsx'
+import AcousticQualityBadge from '../components/AcousticQualityBadge.jsx'
 import { classColor, classLabel } from '../utils/taxonomy.js'
 
 const MODEL_KEYS = ['crab_pot', 'shipwreck', 'mine']
@@ -143,7 +144,7 @@ export default function Dashboard() {
                   <th>Site</th>
                   <th>Detections</th>
                   <th>Top class</th>
-                  <th>Status</th>
+                  <th style={{ minWidth: 200, whiteSpace: 'nowrap' }}>Status</th>
                   <th></th>
                 </tr>
               </thead>
@@ -166,6 +167,12 @@ export default function Dashboard() {
                           }}
                         >
                           <SonarCanvas imageSrc={l.imageSrc} seed={l.id} />
+                          {/* Minimalist compact chip overlay anchored in top-right */}
+                          {l.quality && (
+                            <div style={{ position: 'absolute', top: 6, right: 6, zIndex: 3 }}>
+                              <AcousticQualityBadge quality={l.quality} variant="thumbnail" />
+                            </div>
+                          )}
                           {l.location && (
                             <div
                               className="mono"
@@ -191,8 +198,13 @@ export default function Dashboard() {
                     <td>{l.site}</td>
                     <td className="mono">{l.detections}</td>
                     <td>{l.topClass || '—'}</td>
-                    <td>
-                      <StatusTag status={l.status} />
+                    <td style={{ whiteSpace: 'nowrap' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-start', whiteSpace: 'nowrap' }}>
+                        <StatusTag status={l.status} />
+                        {l.quality && (
+                          <AcousticQualityBadge quality={l.quality} variant="pill" showDetailsToggle={true} />
+                        )}
+                      </div>
                     </td>
                     <td style={{ textAlign: 'right' }}>
                       <button
